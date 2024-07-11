@@ -70,10 +70,6 @@ async def generate_output(user_query: str):
 
             try:
                 fig = local_vars['plt'].gcf()
-                # Save it to a BytesIO object
-                # buf = io.BytesIO()
-                # fig.savefig(buf, format='png')
-                # buf.seek(0)
                 output = io.BytesIO()
                 FigureCanvas(fig).print_png(output)
                 return Response(output.getvalue(), media_type="image/png")

@@ -33,17 +33,14 @@ def load_dataframe(file_path: str):
                 df = pd.read_csv(file_path, index_col=0, delimiter=';')
 
         elif file_path.endswith(('.xls', '.xlsx')):
-            # especial pa prueba con json col:
-            if 'df_test' in file_path:
-                df = pd.read_excel(file_path, engine='openpyxl')
 
+            df = pd.read_excel(file_path, engine='openpyxl')
+            # especial pa prueba con json col:
+            if 'Información extendida' in df.columns:
                 df['Información extendida'] = df['Información extendida'].apply(json.loads)
                 json_df = pd.json_normalize(df['Información extendida'])
                 df = df.drop(columns=['Información extendida'])
                 df = pd.concat([df, json_df], axis=1)
-
-            else:
-                df = pd.read_excel(file_path, engine='openpyxl')
 
         df = df.convert_dtypes()
         df.columns = (df.columns.str.replace(' ', '_').str.lower().
@@ -104,9 +101,10 @@ def analyze_table_gemini(query: str, df: pd.DataFrame):
             "El usuario te proporcionará una consulta en lenguaje natural y debes responderla entregando un código en python.",
             "Usa el nombre 'df' para la tabla que contenga la data. No vuelvas a generar la data en el código.",
             f"Si vas a filtrar columnas de la tabla, siempre usa las siguientes columnas: {df.columns}."
-            "Piensa paso a paso, verificando que los formatos y tipos de datos sean los correctos y siempre importa las librerias necesarias en el codigo.",
-            "No imprimas comentarios en el código. (no uses #) y utiliza el comando print para imprimir la tabla con los datos de la consulta.",
-            "En el caso que tengas que imprimir una tabla con la respuesta final, llama a esta tabla: df_temp en el código generado."
+            "Piensa paso a paso, verificando que los formatos y tipos de datos sean los correctos y siempre importa las librerías necesarias en el código.",
+            "No imprimas comentarios en el código (no uses #).",
+            "En el caso en que tengas que entregar una tabla con la respuesta final a la consulta del usuario, llama a esta tabla: df_temp en el código generado.",
+            "No uses la función print para imprimir la tabla al final del código, solo entrega la tabla 'df_temp'",
             "En el caso de que tengas que graficar, ocupa un fig_size fijo de (5,5) y siempre usa tight_layout.",
             "Si no respondiste generando código en python, siempre respondes en español",
             ])
