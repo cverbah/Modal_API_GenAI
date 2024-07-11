@@ -11,3 +11,7 @@ You need:
 For running the app: <br>
 1. `pip install -r requirements.txt`
 2. `modal deploy main.py` For deploying the api in the cloud
+
+<br><br>
+To be done:
+- change dataframe uploaded for testing. API should connect to different tables through the backend (like biqquery, tables from a front end, etc)
