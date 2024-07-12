@@ -77,15 +77,6 @@ async def generate_output(user_query: str,
                 try:
                     fig = local_vars['fig']
                     plot_html = fig.to_html(full_html=False)
-
-                    # Save the HTML to a file
-                    with open("plot.html", "w") as file:
-                        file.write(plot_html)
-
-                    # Open the saved HTML file in the default web browser
-                    file_path = os.path.abspath("plot.html")
-                    webbrowser.open(f"file://{file_path}")
-
                     return HTMLResponse(content=plot_html)
 
                 except Exception as e:
