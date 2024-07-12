@@ -2,6 +2,7 @@ from utils import *
 import pandas as pd
 from modal import Image, Secret, Mount, Volume, App, asgi_app
 from fastapi import FastAPI, Response, Query, File, UploadFile, Request
+from fastapi.responses import HTMLResponse
 import time
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,13 +13,15 @@ import re
 import io
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+import plotly.graph_objects as go
+import webbrowser
 plt.style.use('seaborn-white')
 
 
 image = (Image.micromamba()
          .pip_install("numpy==1.23.5", "pandas==1.5.3", "openpyxl==3.1.2", "fastapi==0.111.0",
                       "matplotlib==3.7.1", "seaborn==0.12.2", "python-dotenv==1.0.0", "PyQt5==5.15.10",
-                      "google-cloud-aiplatform==1.48.0",
+                      "google-cloud-aiplatform==1.48.0", "plotly==5.14.0",
                       )
          )
 
@@ -54,59 +57,112 @@ def read_root():
 
 
 @genai_app.get("/gemini-analyst")
-async def generate_output(user_query: str):
+async def generate_output(user_query: str,
+                          type_of_plot: str = Query("plotly", enum=["plotly", "plt"])):
     try:
         # for now just loading a test xlsx
         file = 'df_test.xlsx'
         df = load_dataframe(f'{file}')
         print(df.head())
-        response = analyze_table_gemini(query=user_query, df=df)
+        response = analyze_table_gemini(query=user_query, df=df, plot_type=type_of_plot)
         print('Python Snippet Generated: \n')
         print(response)
+
         if 'python' in response:
             local_vars, output = execute_code(response, df=df)
 
-        if 'plt.' in response:
+        if type_of_plot == 'plotly':
+            #if 'plt.' in response:
+            if 'plotly.express' in response:
+                try:
+                    fig = local_vars['fig']
+                    plot_html = fig.to_html(full_html=False)
 
-            try:
-                fig = local_vars['plt'].gcf()
-                output = io.BytesIO()
-                FigureCanvas(fig).print_png(output)
-                return Response(output.getvalue(), media_type="image/png")
+                    # Save the HTML to a file
+                    with open("plot.html", "w") as file:
+                        file.write(plot_html)
 
-            except Exception as e:
+                    # Open the saved HTML file in the default web browser
+                    file_path = os.path.abspath("plot.html")
+                    webbrowser.open(f"file://{file_path}")
+
+                    return HTMLResponse(content=plot_html)
+
+                except Exception as e:
+                    try:
+                        df_temp = local_vars['df_temp']
+                        return df_temp.to_json(orient='records')
+
+                    except Exception as e:
+                        output = {
+                            "error": str(e),
+                            "output": "intente de nuevo probando con otra query"
+                        }
+                        return output
+
+            else:
                 try:
                     df_temp = local_vars['df_temp']
+                    # Convert the DataFrame to JSON
                     return df_temp.to_json(orient='records')
 
                 except Exception as e:
-                    output = {
-                        "error": str(e),
-                        "output": "intente de nuevo probando con otra query"
-                    }
-                    return output
 
-        else:
-            try:
-                df_temp = local_vars['df_temp']
-                # Convert the DataFrame to JSON
-                return df_temp.to_json(orient='records')
+                    try:
+                        output = {
+                            "response": str(response),
+                        }
+                        return output
 
-            except Exception as e:
+                    except Exception as e:
 
+                        output = {
+                            "error": str(e),
+                            "output": "intente de nuevo probando con otra query"
+                        }
+                        return output
+
+        elif type_of_plot == 'plt':
+            if 'plt.' in response:
                 try:
-                    output = {
-                        "response": str(response),
-                    }
-                    return output
+                    fig = local_vars['plt'].gcf()
+                    output = io.BytesIO()
+                    FigureCanvas(fig).print_png(output)
+                    return Response(output.getvalue(), media_type="image/png")
+
+                except Exception as e:
+                    try:
+                        df_temp = local_vars['df_temp']
+                        return df_temp.to_json(orient='records')
+
+                    except Exception as e:
+                        output = {
+                            "error": str(e),
+                            "output": "intente de nuevo probando con otra query"
+                        }
+                        return output
+
+            else:
+                try:
+                    df_temp = local_vars['df_temp']
+                    # Convert the DataFrame to JSON
+                    return df_temp.to_json(orient='records')
 
                 except Exception as e:
 
-                    output = {
-                        "error": str(e),
-                        "output": "intente de nuevo probando con otra query"
-                    }
-                    return output
+                    try:
+                        output = {
+                            "response": str(response),
+                        }
+                        return output
+
+                    except Exception as e:
+
+                        output = {
+                            "error": str(e),
+                            "output": "intente de nuevo probando con otra query"
+                        }
+                        return output
 
     except Exception as e:
         output = {
