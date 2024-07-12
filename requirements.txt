@@ -4,7 +4,7 @@ matplotlib==3.7.1
 PyQt5==5.15.10
 google-cloud-aiplatform==1.48.0
 modal==0.62.109
-fastapi==0.95.2
+fastapi==0.111.0
 openpyxl==3.1.2
 seaborn==0.12.2
 python-dotenv==1.0.0
