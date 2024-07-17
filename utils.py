@@ -10,6 +10,9 @@ import json
 import contextlib
 from dotenv import load_dotenv
 import plotly.graph_objects as go
+from google.oauth2 import service_account
+from google.cloud import bigquery
+from datetime import date
 
 # env
 load_dotenv()
@@ -26,6 +29,49 @@ def parse_null_list(value):
     else:
         return value
 
+
+def parse_df_competitividad(df: pd.DataFrame):
+    df['productPrices'] = df['productPrices'].apply(json.loads)
+    df['image'] = df['image'].apply(json.loads)
+    json_df_prices = pd.json_normalize(df['productPrices'])
+    json_df_image = pd.json_normalize(df['image'])
+    df = df.drop(columns=['productPrices', 'image', 'prices'])
+    df_parsed = pd.concat([df, json_df_prices, json_df_image], axis=1)
+    df_parsed = df_parsed.convert_dtypes()
+    df_parsed['stock'] = pd.to_numeric(df_parsed["stock"], errors='coerce')
+    df_parsed['price_index'] = pd.to_numeric(df_parsed["price_index"], errors='coerce')
+    df_parsed['final_price'] = pd.to_numeric(df_parsed["final_price"], errors='coerce')
+    df_parsed['normal_price'] = pd.to_numeric(df_parsed["normal_price"], errors='coerce')
+    df_parsed['last_final_price'] = pd.to_numeric(df_parsed["last_final_price"], errors='coerce')
+    df_parsed.columns = (df_parsed.columns.str.replace(' ', '_').str.lower().
+                         str.normalize('NFKD').str.encode('ascii', errors='ignore').str.decode('utf-8'))
+
+    return df_parsed
+
+
+def load_big_query_dataframe(client_id: str, dataset_name: str, table_name: str, limit=10000):
+    try:
+        credentials = service_account.Credentials.from_service_account_file('key2.json')
+        client = bigquery.Client(credentials=credentials)
+        today = date.today()
+        today = today.strftime("%Y-%m-%d")
+
+        QUERY = (
+            f'SELECT * FROM `extracciones-303705.{dataset_name}.{table_name}` '
+            f'WHERE client_id = "{client_id}" AND TIMESTAMP_TRUNC(_PARTITIONTIME, DAY) = TIMESTAMP("{today}")'
+            f'LIMIT {limit}')  # 500K rows del total (?)
+
+        query_job = client.query(QUERY)  # API request
+        rows = query_job.result()  # Waits for query to finish
+        df = query_job.to_dataframe()
+
+        return df
+
+    except Exception as e:
+        output = {
+            "error": str(e),
+        }
+        return output
 
 def load_dataframe(file_path: str):
     try:
@@ -109,7 +155,7 @@ def analyze_table_gemini(query: str, df: pd.DataFrame, plot_type='plotly'):
             "Piensa paso a paso, verificando que los formatos y tipos de datos sean los correctos y siempre importa las librerías necesarias en el código.",
             "No imprimas comentarios en el código (no uses #).",
             "En el caso en que tengas que entregar una tabla con la respuesta final a la consulta del usuario, llama a esta tabla: df_temp en el código generado.",
-            "No uses la función print para imprimir la tabla al final del código",
+            "No uses la función print para imprimir la tabla al final del código. Nunca uses: print(df_temp) al final del código",
             "Si no respondiste generando código en python, siempre respondes en español",
         ]
     else:
