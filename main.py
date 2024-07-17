@@ -65,10 +65,9 @@ async def generate_output_bq(user_query: str,
                              table_name: str = Query("matches", enum=["matches", "dummy"]),
                              type_of_plot: str = Query("plotly", enum=["plotly", "plt"])):
     try:
-        # for now just loading a test xlsx
-        #file = 'df_test.xlsx'
+
         df = load_big_query_dataframe(client_id=client_id, dataset_name=dataset_name, table_name=table_name, limit=10000)
-        #df = parse_df_competitividad(df)
+        df = parse_df_competitividad(df)
         print(df.head())
         response = analyze_table_gemini(query=user_query, df=df, plot_type=type_of_plot)
         print('Python Snippet Generated: \n')
